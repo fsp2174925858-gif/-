@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+  <meta name="description" id="metaDescription" content="自定义选项，转盘随机决定今天吃什么。" />
+  <meta name="theme-color" content="#0f1218" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta property="og:title" id="metaOgTitle" content="今天吃什么 · 转盘" />
+  <meta property="og:description" id="metaOgDesc" content="写好选项，转一下随机选。" />
+  <title id="docTitle">今天吃什么 · 转盘</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --panel: #181c26;
+      --text: #e8eaef;
+      --muted: #8b92a8;
+      --accent: #f59e0b;
+      --accent-dim: #b45309;
+      --danger: #ef4444;
+      --ring: #2a3142;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(ellipse 120% 80% at 50% -20%, #1e2433 0%, var(--bg) 55%);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-right, 0px)) max(1.25rem, env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));
+      touch-action: manipulation;
+      overscroll-behavior-y: contain;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem;
+      letter-spacing: 0.02em;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 0;
+    }
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      width: 100%;
+      max-width: 960px;
+      margin-bottom: 1.25rem;
+    }
+    .page-head .titles {
+      flex: 1;
+      min-width: 0;
+    }
+    .page-head .sub {
+      margin-bottom: 0;
+    }
+    .btn-lang {
+      flex-shrink: 0;
+      min-height: 40px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.85rem;
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--ring);
+      font-weight: 500;
+    }
+    .btn-lang:hover {
+      color: var(--text);
+      border-color: var(--muted);
+    }
+    .layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+      align-items: flex-start;
+      max-width: 960px;
+      width: 100%;
+    }
+    .wheel-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+    canvas {
+      display: block;
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 6px var(--ring),
+        0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+    .pointer {
+      position: absolute;
+      left: 50%;
+      top: -8px;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 22px solid var(--accent);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+      z-index: 2;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--ring);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      width: min(100%, 340px);
+    }
+    .panel h2 {
+      font-size: 0.95rem;
+      margin: 0 0 0.75rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      border: 1px solid var(--ring);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent-dim);
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 0.55rem 0.9rem;
+      transition: transform 0.08s, filter 0.15s;
+      min-height: 44px;
+    }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    .btn-add {
+      background: var(--ring);
+      color: var(--text);
+    }
+    .btn-add:hover { filter: brightness(1.12); }
+    .btn-spin {
+      width: 100%;
+      margin-top: 0.35rem;
+      padding: 0.85rem 0.75rem;
+      font-size: 1rem;
+      min-height: 48px;
+      background: linear-gradient(165deg, #fbbf24, var(--accent));
+      color: #1a1206;
+      font-weight: 700;
+    }
+    .btn-spin:hover:not(:disabled) { filter: brightness(1.05); }
+    .btn-spin:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--ring);
+      padding: 0.4rem 0.65rem;
+      font-size: 0.8rem;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn-remove {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      padding: 0.35rem 0.55rem;
+      font-size: 0.75rem;
+      min-height: 40px;
+    }
+    .btn-share {
+      width: 100%;
+      margin-top: 0.5rem;
+      background: #252b3a;
+      color: var(--text);
+      border: 1px solid var(--ring);
+    }
+    .btn-share:hover { filter: brightness(1.08); }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%) translateY(120%);
+      background: #252b3a;
+      color: var(--text);
+      padding: 0.65rem 1rem;
+      border-radius: 10px;
+      border: 1px solid var(--ring);
+      font-size: 0.9rem;
+      z-index: 100;
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+      max-width: min(90vw, 320px);
+      text-align: center;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .options {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: min(38vh, 260px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .options li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.45rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+    }
+    .options li:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+    .result {
+      margin-top: 1rem;
+      text-align: center;
+      min-height: 2.5rem;
+    }
+    .result .label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .result .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .hint { font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.4; }
+    .deploy-hint {
+      margin-top: 1.75rem;
+      padding: 0.75rem 1rem;
+      max-width: 520px;
+      width: 100%;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+      text-align: center;
+      border-top: 1px solid var(--ring);
+    }
+    .deploy-hint code {
+      font-size: 0.7rem;
+      background: var(--panel);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-head">
+    <div class="titles">
+      <h1 id="textH1">今天吃什么</h1>
+      <p class="sub" id="textSub">写好选项，转一下让转盘帮你选</p>
+    </div>
+    <button type="button" class="btn-lang" id="btnLang">English</button>
+  </div>
+  <div class="layout">
+    <div class="wheel-wrap">
+      <div class="pointer" aria-hidden="true"></div>
+      <canvas id="wheel" width="320" height="320" aria-label="选项转盘"></canvas>
+    </div>
+    <div class="panel">
+      <h2 id="textPanelH2">选项列表</h2>
+      <div class="row">
+        <input type="text" id="newOption" placeholder="例如：麻辣烫" maxlength="40" />
+        <button type="button" class="btn-add" id="btnAdd">添加</button>
+      </div>
+      <div class="row" style="margin-bottom: 0.5rem;">
+        <button type="button" class="btn-ghost" id="btnPreset">填入示例</button>
+        <button type="button" class="btn-ghost" id="btnClear">清空</button>
+      </div>
+      <ul class="options" id="optionList"></ul>
+      <button type="button" class="btn-spin" id="btnSpin">开始转！</button>
+      <button type="button" class="btn-share" id="btnShare">复制分享链接（带当前选项）</button>
+      <p class="hint" id="textHint">至少 2 个选项可转。转盘转动中仍可改列表（下次转生效）。选项会保存在本机浏览器。</p>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="result" id="resultBox" hidden>
+    <div class="label" id="textResultLabel">本次结果</div>
+    <div class="value" id="resultText"></div>
+  </div>
+  <p class="deploy-hint" id="textDeploy">
+    公网访问：把本文件夹部署到
+    <strong>Vercel</strong> / <strong>Netlify</strong> / <strong>Cloudflare Pages</strong>
+    （上传目录或绑定 Git 仓库即可），会得到 <code>https://…</code> 链接发给朋友即可。
+    本地同一 WiFi 试手机：在项目目录运行 <code>npm run preview</code> 后用手机浏览器打开电脑 IP 的 <code>:3333</code> 端口。
+  </p>
+
+  <script>
+    const PRESET_ZH = ["麻辣烫", "盖饭", "拉面", "轻食沙拉", "麦当劳", "自己做", "外卖随便点"];
+    const PRESET_EN = ["Hot pot", "Rice bowl", "Ramen", "Salad", "Fast food", "Cook at home", "Surprise me"];
+    const STORAGE_KEY = "food-wheel-options-v1";
+    const LANG_KEY = "food-wheel-lang-v1";
+    const LIST_PARAM = "list";
+    const LANG_PARAM = "lang";
+
+    /** @type {"zh" | "en"} */
+    let lang = "zh";
+
+    const I18N = {
+      zh: {
+        docTitle: "今天吃什么 · 转盘",
+        metaDesc: "自定义选项，转盘随机决定今天吃什么。",
+        ogTitle: "今天吃什么 · 转盘",
+        ogDesc: "写好选项，转一下随机选。",
+        h1: "今天吃什么",
+        sub: "写好选项，转一下让转盘帮你选",
+        wheelAria: "选项转盘",
+        panelTitle: "选项列表",
+        placeholder: "例如：麻辣烫",
+        add: "添加",
+        preset: "填入示例",
+        clear: "清空",
+        spin: "开始转！",
+        share: "复制分享链接（带当前选项）",
+        hint: "至少 2 个选项可转。转盘转动中仍可改列表（下次转生效）。选项会保存在本机浏览器。",
+        resultLabel: "本次结果",
+        empty: "（空）",
+        remove: "删除",
+        addMoreOption: "再加一个选项",
+        toastCopiedOk: "已复制链接（已带上当前选项）",
+        toastCopiedNeed2: "已复制链接（默认示例，请至少添加 2 项再分享）",
+        toastCopyFail: "复制失败，请长按链接手动复制",
+        langBtn: "English",
+        deploy:
+          "公网访问：把本文件夹部署到 <strong>Vercel</strong> / <strong>Netlify</strong> / <strong>Cloudflare Pages</strong>（上传目录或绑定 Git 仓库即可），会得到 <code>https://…</code> 链接发给朋友即可。本地同一 WiFi 试手机：在项目目录运行 <code>npm run preview</code> 后用手机浏览器打开电脑 IP 的 <code>:3333</code> 端口。"
+      },
+      en: {
+        docTitle: "What to Eat · Wheel",
+        metaDesc: "Add your own options and spin the wheel to pick what to eat.",
+        ogTitle: "What to Eat · Wheel",
+        ogDesc: "Add options, spin, and let the wheel decide.",
+        h1: "What to Eat",
+        sub: "Add choices below, then spin the wheel.",
+        wheelAria: "Options wheel",
+        panelTitle: "Choices",
+        placeholder: "e.g. Tacos",
+        add: "Add",
+        preset: "Load examples",
+        clear: "Clear all",
+        spin: "Spin!",
+        share: "Copy share link (with choices)",
+        hint: "You need at least 2 choices to spin. You can edit while spinning (next spin uses the new list). Choices are saved in this browser.",
+        resultLabel: "Result",
+        empty: "(empty)",
+        remove: "Remove",
+        addMoreOption: "Add one more option",
+        toastCopiedOk: "Link copied (includes current choices).",
+        toastCopiedNeed2: "Link copied. Load examples or add at least 2 items to share a full list.",
+        toastCopyFail: "Copy failed — select the address bar and copy manually.",
+        langBtn: "中文",
+        deploy:
+          "Public URL: deploy this folder to <strong>Vercel</strong>, <strong>Netlify</strong>, or <strong>Cloudflare Pages</strong> (upload or connect a Git repo) to get an <code>https://…</code> link to share. Same Wi‑Fi preview: run <code>npm run preview</code> in the project folder, then open <code>http://YOUR_PC_IP:3333</code> on your phone."
+      }
+    };
+
+    function t(key) {
+      const pack = I18N[lang] || I18N.zh;
+      return pack[key] != null ? pack[key] : I18N.zh[key];
+    }
+
+    function getPreset() {
+      return lang === "en" ? [...PRESET_EN] : [...PRESET_ZH];
+    }
+
+    function persistLang() {
+      try {
+        localStorage.setItem(LANG_KEY, lang);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function readLangFromUrl() {
+      try {
+        const p = new URLSearchParams(window.location.search).get(LANG_PARAM);
+        if (p === "en" || p === "zh") return p;
+      } catch {
+        /* ignore */
+      }
+      return null;
+    }
+
+    function stripLangFromUrl() {
+      try {
+        const u = new URL(window.location.href);
+        if (!u.searchParams.has(LANG_PARAM)) return;
+        u.searchParams.delete(LANG_PARAM);
+        window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function loadLang() {
+      const fromUrl = readLangFromUrl();
+      if (fromUrl) {
+        lang = fromUrl;
+        persistLang();
+        stripLangFromUrl();
+        return;
+      }
+      try {
+        const s = localStorage.getItem(LANG_KEY);
+        if (s === "en" || s === "zh") {
+          lang = s;
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      lang = "zh";
+    }
+
+    function applyLang() {
+      document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
+      document.getElementById("docTitle").textContent = t("docTitle");
+      const md = document.getElementById("metaDescription");
+      if (md) md.setAttribute("content", t("metaDesc"));
+      const ogt = document.getElementById("metaOgTitle");
+      if (ogt) ogt.setAttribute("content", t("ogTitle"));
+      const ogd = document.getElementById("metaOgDesc");
+      if (ogd) ogd.setAttribute("content", t("ogDesc"));
+      document.getElementById("textH1").textContent = t("h1");
+      document.getElementById("textSub").textContent = t("sub");
+      document.getElementById("wheel").setAttribute("aria-label", t("wheelAria"));
+      document.getElementById("textPanelH2").textContent = t("panelTitle");
+      newOptionInput.placeholder = t("placeholder");
+      btnAdd.textContent = t("add");
+      btnPreset.textContent = t("preset");
+      btnClear.textContent = t("clear");
+      btnSpin.textContent = t("spin");
+      btnShare.textContent = t("share");
+      document.getElementById("textHint").textContent = t("hint");
+      document.getElementById("textResultLabel").textContent = t("resultLabel");
+      document.getElementById("textDeploy").innerHTML = t("deploy");
+      btnLang.textContent = t("langBtn");
+      btnLang.setAttribute("aria-label", lang === "zh" ? "Switch to English" : "切换到中文");
+      renderList();
+    }
+
+    const colors = [
+      "#3b82f6", "#8b5cf6", "#ec4899", "#f97316", "#eab308",
+      "#22c55e", "#14b8a6", "#6366f1", "#f43f5e", "#84cc16",
+      "#06b6d4", "#a855f7", "#f59e0b"
+    ];
+
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const optionListEl = document.getElementById("optionList");
+    const newOptionInput = document.getElementById("newOption");
+    const btnAdd = document.getElementById("btnAdd");
+    const btnSpin = document.getElementById("btnSpin");
+    const btnPreset = document.getElementById("btnPreset");
+    const btnClear = document.getElementById("btnClear");
+    const resultBox = document.getElementById("resultBox");
+    const resultText = document.getElementById("resultText");
+    const btnShare = document.getElementById("btnShare");
+    const btnLang = document.getElementById("btnLang");
+    const toastEl = document.getElementById("toast");
+
+    let options = [];
+    let rotation = 0;
+    let spinning = false;
+    let animId = null;
+    let logicalSize = 320;
+
+    function posMod(n, m) {
+      return ((n % m) + m) % m;
+    }
+
+    function getOptions() {
+      return options.filter((s) => s.trim().length > 0);
+    }
+
+    function parseOptionsFromUrl() {
+      try {
+        const raw = new URLSearchParams(window.location.search).get(LIST_PARAM);
+        if (!raw) return null;
+        const parts = raw.split("|").map((s) => s.trim()).filter(Boolean);
+        return parts.length ? parts : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function loadStoredOptions() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) && arr.length ? arr.map(String) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function persistOptions() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(options));
+      } catch {
+        /* private mode / quota */
+      }
+    }
+
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => toastEl.classList.remove("show"), 2200);
+    }
+
+    function buildShareUrl() {
+      const list = getOptions();
+      const u = new URL(window.location.href);
+      u.search = "";
+      if (list.length >= 2) {
+        const payload = list.map((s) => s.replace(/\|/g, "·").trim()).join("|");
+        u.searchParams.set(LIST_PARAM, payload);
+      }
+      u.searchParams.set(LANG_PARAM, lang);
+      u.hash = "";
+      return u.toString();
+    }
+
+    async function copyShareLink() {
+      const url = buildShareUrl();
+      const list = getOptions();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        showToast(list.length >= 2 ? t("toastCopiedOk") : t("toastCopiedNeed2"));
+      } catch {
+        showToast(t("toastCopyFail"));
+      }
+    }
+
+    function renderList() {
+      optionListEl.innerHTML = "";
+      options.forEach((text, i) => {
+        const li = document.createElement("li");
+        const span = document.createElement("span");
+        span.textContent = text || t("empty");
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.className = "btn-remove";
+        rm.textContent = t("remove");
+        rm.addEventListener("click", () => {
+          options.splice(i, 1);
+          persistOptions();
+          renderList();
+          drawWheel();
+        });
+        li.appendChild(span);
+        li.appendChild(rm);
+        optionListEl.appendChild(li);
+      });
+      btnSpin.disabled = getOptions().length < 2 || spinning;
+    }
+
+    function fitCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const size = Math.min(320, Math.floor((window.innerWidth - 40) * 0.92));
+      logicalSize = Math.max(220, size);
+      canvas.style.width = logicalSize + "px";
+      canvas.style.height = logicalSize + "px";
+      canvas.width = Math.floor(logicalSize * dpr);
+      canvas.height = Math.floor(logicalSize * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawWheel() {
+      const list = getOptions();
+      const w = logicalSize;
+      const h = logicalSize;
+      const cx = w / 2;
+      const cy = h / 2;
+      const r = Math.min(cx, cy) - 4;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+
+      if (list.length === 0) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#2a3142";
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+
+      const slice = (Math.PI * 2) / list.length;
+      for (let i = 0; i < list.length; i++) {
+        const a0 = i * slice - Math.PI / 2;
+        const a1 = (i + 1) * slice - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, r, a0, a1);
+        ctx.closePath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = "rgba(15,18,24,0.35)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const mid = (a0 + a1) / 2;
+        const ell = lang === "en" ? "..." : "…";
+        const label = list[i].length > 8 ? list[i].slice(0, 7) + ell : list[i];
+        ctx.save();
+        ctx.rotate(mid);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.font = "600 " + Math.max(11, Math.floor(r / 10)) + "px Segoe UI, PingFang SC, Microsoft YaHei, sans-serif";
+        ctx.shadowColor = "rgba(0,0,0,0.45)";
+        ctx.shadowBlur = 3;
+        ctx.fillText(label, r - 14, 5);
+        ctx.restore();
+      }
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2);
+      ctx.fillStyle = "#0f1218";
+      ctx.fill();
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function spin() {
+      const list = getOptions();
+      if (list.length < 2 || spinning) return;
+
+      spinning = true;
+      btnSpin.disabled = true;
+      resultBox.hidden = true;
+
+      const win = Math.floor(Math.random() * list.length);
+      const slice = (Math.PI * 2) / list.length;
+      const centerWin = win * slice + slice / 2 - Math.PI / 2;
+      const fullTurns = 5 + Math.floor(Math.random() * 3);
+      const adj = posMod(-Math.PI / 2 - centerWin - rotation, Math.PI * 2);
+      const target = rotation + fullTurns * Math.PI * 2 + adj;
+
+      const start = rotation;
+      const delta = target - start;
+      const duration = 3800 + Math.random() * 700;
+      const t0 = performance.now();
+
+      function frame(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        const e = easeOutCubic(t);
+        rotation = start + delta * e;
+        drawWheel();
+        if (t < 1) {
+          animId = requestAnimationFrame(frame);
+        } else {
+          rotation = target;
+          drawWheel();
+          spinning = false;
+          btnSpin.disabled = getOptions().length < 2;
+          resultText.textContent = list[win];
+          resultBox.hidden = false;
+        }
+      }
+      if (animId) cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(frame);
+    }
+
+    function addOption() {
+      const v = newOptionInput.value.trim();
+      if (!v) return;
+      options.push(v);
+      newOptionInput.value = "";
+      persistOptions();
+      renderList();
+      drawWheel();
+    }
+
+    btnAdd.addEventListener("click", addOption);
+    newOptionInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addOption();
+    });
+    btnSpin.addEventListener("click", spin);
+    btnShare.addEventListener("click", copyShareLink);
+    btnPreset.addEventListener("click", () => {
+      options = getPreset();
+      persistOptions();
+      renderList();
+      drawWheel();
+    });
+    btnClear.addEventListener("click", () => {
+      options = [];
+      persistOptions();
+      renderList();
+      drawWheel();
+    });
+
+    window.addEventListener("resize", () => {
+      fitCanvas();
+      drawWheel();
+    });
+
+    loadLang();
+
+    (function initOptions() {
+      const fromUrl = parseOptionsFromUrl();
+      if (fromUrl) {
+        options = fromUrl.length >= 2 ? fromUrl : fromUrl.concat([t("addMoreOption")]);
+        persistOptions();
+        const u = new URL(window.location.href);
+        u.searchParams.delete(LIST_PARAM);
+        window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+      } else {
+        const stored = loadStoredOptions();
+        if (stored && stored.length) options = stored;
+        else options = getPreset();
+      }
+    })();
+
+    btnLang.addEventListener("click", () => {
+      lang = lang === "zh" ? "en" : "zh";
+      persistLang();
+      applyLang();
+      drawWheel();
+    });
+
+    fitCanvas();
+    applyLang();
+    drawWheel();
+  </script>
+</body>
+</html>

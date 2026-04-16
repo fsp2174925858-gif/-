@@ -1,0 +1,8 @@
+{
+  "name": "food-wheel",
+  "private": true,
+  "description": "静态转盘页面：整仓库部署到 Vercel / Netlify / Cloudflare Pages 即可得到公网链接；本地可 npm run preview 在同一 WiFi 用手机访问。",
+  "scripts": {
+    "preview": "npx --yes serve@14 . -l 3333"
+  }
+}
